@@ -121,7 +121,7 @@ with mid:
 
 with right:
     max_cards = st.number_input("最大表示件数（画像付き）", min_value=1, max_value=1000, value=120, step=20)
-    img_width = st.slider("画像サイズ", min_value=60, max_value=220, value=120, step=10)
+    img_width = st.slider("画像サイズ", min_value=40, max_value=200, value=60, step=10)
 
 view = df.copy()
 
