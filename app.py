@@ -4,13 +4,11 @@ import json
 import pandas as pd
 import requests
 import streamlit as st
-from bs4 import BeautifulSoup
 
 st.set_page_config(page_title="Amazon 発注推奨 + 画像", layout="wide")
 
 AMAZON_DP = "https://www.amazon.co.jp/dp/{}"
 
-# それっぽく人間のブラウザに見せる（403回避に多少効く）
 DEFAULT_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -23,27 +21,20 @@ DEFAULT_HEADERS = {
 }
 
 def _unescape(s: str) -> str:
-    # AmazonのHTML内JSONは \" や \u0026 が混ざることがあるので軽く戻す
     try:
         return bytes(s, "utf-8").decode("unicode_escape").replace("\\/", "/")
     except Exception:
         return s.replace("\\/", "/")
 
 def extract_first_image_url_from_html(html: str) -> str | None:
-    """
-    Amazon商品ページHTMLから「1枚目の画像URL」っぽいものを抽出する。
-    取れない時は None。
-    """
-
-    # 1) landingImage（比較的安定）
+    # 1) landingImage
     m = re.search(r'"landingImage"\s*:\s*"([^"]+)"', html)
     if m:
         url = _unescape(m.group(1))
         if url.startswith("http"):
             return url
 
-    # 2) hiRes / large のURLを拾う（colorImages系）
-    # hiRes が空のことがあるので large も見る
+    # 2) hiRes / large
     for key in ["hiRes", "large"]:
         m = re.search(rf'"{key}"\s*:\s*"([^"]+)"', html)
         if m:
@@ -51,12 +42,10 @@ def extract_first_image_url_from_html(html: str) -> str | None:
             if url.startswith("http"):
                 return url
 
-    # 3) ImageBlockATF / scripts 内の JSON から拾う（当たりやすいが変動もする）
-    # "colorImages": {"initial":[{...}]} の中の hiRes/large を優先
+    # 3) colorImages blob
     m = re.search(r'"colorImages"\s*:\s*({.*?})\s*,\s*"colorToAsin"', html, re.DOTALL)
     if m:
-        blob = m.group(1)
-        blob = _unescape(blob)
+        blob = _unescape(m.group(1))
         try:
             data = json.loads(blob)
             initial = data.get("initial") or []
@@ -70,32 +59,31 @@ def extract_first_image_url_from_html(html: str) -> str | None:
 
     return None
 
-@st.cache_data(show_spinner=False, ttl=60 * 60 * 12)  # 12時間キャッシュ
+@st.cache_data(show_spinner=False, ttl=60 * 60 * 12)
 def get_first_image_url(asin: str) -> str | None:
     url = AMAZON_DP.format(asin)
     try:
         r = requests.get(url, headers=DEFAULT_HEADERS, timeout=15)
         if r.status_code != 200:
             return None
-
         html = r.text
-
-        # CAPTCHA っぽい時は諦め
         if "captcha" in html.lower() or "Robot Check" in html:
             return None
-
         return extract_first_image_url_from_html(html)
     except Exception:
         return None
 
 def read_inventory_csv(uploaded_file) -> pd.DataFrame:
-    # Amazonの在庫系CSVはcp932が多い
-    # だめならutf-8も試す
     try:
         return pd.read_csv(uploaded_file, encoding="cp932")
     except Exception:
         uploaded_file.seek(0)
         return pd.read_csv(uploaded_file, encoding="utf-8")
+
+def normalize_text(x) -> str:
+    if pd.isna(x):
+        return ""
+    return str(x).strip()
 
 st.title("📦 発注推奨（推奨される在庫補充数量）順 + ASIN画像（1枚目）")
 
@@ -106,55 +94,98 @@ if not uploaded:
 
 df = read_inventory_csv(uploaded)
 
-# 必須列チェック（あなたのCSVはこの列名でOK）
 required_cols = ["ASIN", "推奨される在庫補充数量"]
 missing = [c for c in required_cols if c not in df.columns]
 if missing:
     st.error(f"CSVに必要な列が見つかりません: {missing}")
     st.stop()
 
-# 推奨数量を数値化
+# 数値化
 df["推奨される在庫補充数量"] = pd.to_numeric(df["推奨される在庫補充数量"], errors="coerce").fillna(0).astype(int)
 
-# フィルタ
-min_qty = st.slider("最低表示する発注推奨数", 0, int(df["推奨される在庫補充数量"].max() if len(df) else 0), 1)
-only_positive = st.checkbox("発注推奨が0の行は除外", value=True)
+# 文字列列
+df["ASIN"] = df["ASIN"].map(normalize_text)
+if "Merchant SKU" in df.columns:
+    df["Merchant SKU"] = df["Merchant SKU"].map(normalize_text)
+
+# --- UI: フィルタ ---
+left, mid, right = st.columns([1.4, 1.1, 1.1], gap="large")
+
+with left:
+    query = st.text_input("🔎 SKU または ASIN で検索（部分一致OK）", placeholder="例: B0DG8RNRMX / 7987 / ABC ...")
+    st.caption("スペース区切りで複数指定するとAND検索になります。")
+
+with mid:
+    only_positive = st.checkbox("発注推奨が0は除外", value=True)
+    min_qty = st.number_input("最低発注推奨数", min_value=0, value=1, step=1)
+
+with right:
+    max_cards = st.number_input("最大表示件数（画像付き）", min_value=1, max_value=1000, value=120, step=20)
+    img_width = st.slider("画像サイズ", min_value=60, max_value=220, value=120, step=10)
 
 view = df.copy()
+
 if only_positive:
     view = view[view["推奨される在庫補充数量"] > 0]
-view = view[view["推奨される在庫補充数量"] >= min_qty]
+view = view[view["推奨される在庫補充数量"] >= int(min_qty)]
 
-# 並べ替え（多い順）
+# 検索（SKU or ASIN）
+q = (query or "").strip()
+if q:
+    # 複数語AND検索
+    tokens = [t for t in re.split(r"\s+", q) if t]
+    # 対象文字列（SKU + ASIN）
+    if "Merchant SKU" in view.columns:
+        hay = (view["Merchant SKU"].fillna("") + " " + view["ASIN"].fillna("")).str.lower()
+    else:
+        hay = view["ASIN"].fillna("").str.lower()
+
+    mask = pd.Series(True, index=view.index)
+    for t in tokens:
+        t = t.lower()
+        mask &= hay.str.contains(re.escape(t), na=False)
+    view = view[mask]
+
+# 並べ替え
 view = view.sort_values("推奨される在庫補充数量", ascending=False).reset_index(drop=True)
 
 st.write(f"表示件数: **{len(view)}**")
+st.divider()
 
-# 表も欲しい場合（軽く）
+# 軽量テーブル（任意）
 with st.expander("一覧テーブル（軽量）"):
     show_cols = [c for c in ["Merchant SKU", "商品名", "ASIN", "推奨される在庫補充数量"] if c in view.columns]
     st.dataframe(view[show_cols], use_container_width=True, height=350)
 
-st.divider()
-
-# カード表示（画像 + 発注推奨を大きく色付き）
-max_cards = st.number_input("最大表示件数（画像付きは重いので調整可）", min_value=1, max_value=500, value=80, step=10)
+# --- カード表示 ---
 view_cards = view.head(int(max_cards))
 
-for i, row in view_cards.iterrows():
-    asin = str(row["ASIN"]).strip()
+for _, row in view_cards.iterrows():
+    asin = normalize_text(row["ASIN"])
     qty = int(row["推奨される在庫補充数量"])
-    sku = str(row.get("Merchant SKU", "")).strip()
-    name = str(row.get("商品名", "")).strip()
-
+    sku = normalize_text(row.get("Merchant SKU", ""))
+    name = normalize_text(row.get("商品名", ""))
     dp_url = AMAZON_DP.format(asin)
 
-    col_img, col_info, col_qty = st.columns([1.1, 3.2, 1.2], gap="large")
+    # 商品カード枠（薄い背景）
+    st.markdown(
+        """
+        <div style="
+            border: 1px solid rgba(0,0,0,0.08);
+            border-radius: 14px;
+            padding: 12px 12px 6px 12px;
+            background: rgba(0,0,0,0.015);
+        ">
+        """,
+        unsafe_allow_html=True,
+    )
+
+    col_img, col_info, col_qty = st.columns([0.9, 3.4, 1.2], gap="large")
 
     with col_img:
         img_url = get_first_image_url(asin)
         if img_url:
-            st.image(img_url, use_container_width=True)
+            st.image(img_url, width=int(img_width))
         else:
             st.caption("画像取得できません（403/CAPTCHA等）")
 
@@ -166,19 +197,17 @@ for i, row in view_cards.iterrows():
             st.caption(name)
 
     with col_qty:
-        # qty を強調（大きく・色付き）
-        # 数が大きいほど目立たせたいならここで条件分岐もOK
         st.markdown(
             f"""
             <div style="
                 border-radius: 14px;
-                padding: 14px 12px;
+                padding: 12px 10px;
                 border: 1px solid rgba(255,0,0,0.25);
-                background: rgba(255,0,0,0.06);
+                background: rgba(255,0,0,0.07);
                 text-align: center;
             ">
                 <div style="font-size: 12px; opacity: 0.75;">発注推奨</div>
-                <div style="font-size: 40px; font-weight: 800; color: #d40000; line-height: 1.1;">
+                <div style="font-size: 36px; font-weight: 900; color: #d40000; line-height: 1.05;">
                     {qty}
                 </div>
             </div>
@@ -186,4 +215,8 @@ for i, row in view_cards.iterrows():
             unsafe_allow_html=True,
         )
 
-    st.write("")  # 余白
+    # カード閉じ
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # 商品ごとの区切り線
+    st.divider()
