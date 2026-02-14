@@ -165,28 +165,28 @@ for _, row in rows.iterrows():
     with col1:
     img_url = cache_dict.get(url)
 
-    if img_url:
-        st.markdown(
-            f"""
-            <div style="
-                width:{img_size}px;
-                height:{img_size}px;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                overflow:hidden;
-                border-radius:4px;
-            ">
-                <img src="{img_url}"
-                     style="
-                         max-width:100%;
-                         max-height:100%;
-                         object-fit:contain;
-                     ">
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        if img_url:
+            st.markdown(
+                f"""
+                <div style="
+                    width:{img_size}px;
+                    height:{img_size}px;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    overflow:hidden;
+                    border-radius:4px;
+                ">
+                    <img src="{img_url}"
+                        style="
+                            max-width:100%;
+                            max-height:100%;
+                            object-fit:contain;
+                        ">
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
         else:
             if url:
