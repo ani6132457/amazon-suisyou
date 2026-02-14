@@ -43,11 +43,21 @@ def normalize(x):
     return str(x).strip()
 
 def extract_7digits(sku):
+    """
+    SKU から数字だけを取り出し、その先頭 7 桁を返す。
+    例:
+      "ama-798_7560X11Y14" -> "79875601114" -> "7987560"
+    """
     if not sku:
         return None
-    head = str(sku).split("X")[0]
-    m = re.search(r"(\d{7})", head)
-    return m.group(1) if m else None
+
+    # 数字だけを抽出
+    digits = "".join(re.findall(r"\d+", str(sku)))
+
+    # 先頭 7 桁を返す（足りなければ None）
+    if len(digits) >= 7:
+        return digits[:7]
+    return None
 
 def extract_color(name):
     if not name:
