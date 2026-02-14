@@ -197,47 +197,71 @@ for _, row in rows.iterrows():
 
     # ---- SKU | ASIN | カラー + 在庫情報 ----
     with col2:
-        line = f"SKU:{sku} | ASIN:{asin}"
-        if color:
-            line += f" | <b>{color}</b>"
-            st.markdown(line, unsafe_allow_html=True)
 
-            # 数値判定
-            try:
-                available_int = int(available)
-            except:
-                available_int = 0
-
-            soldout_html = ""
-            if available_int == 0:
-                soldout_html = (
-                    '<span style="'
-                    'margin-left:8px;'
-                    'padding:2px 6px;'
-                    'font-size:12px;'
-                    'font-weight:700;'
-                    'background:#d40000;'
-                    'color:white;'
-                    'border-radius:4px;'
-                    '">在庫切れ</span>'
-                )
-
+        # --- 商品名（上段） ---
+        if name:
             st.markdown(
                 f"""
                 <div style="
-                    font-size:15px;
+                    font-size:14px;
                     font-weight:600;
-                    margin-top:12px;
-                    line-height:1.2;
+                    margin-bottom:3px;
                 ">
-                    販売可能: <span style="color:#007bff;">{available}</span>
-                    ｜ 
-                    入荷待ち: <span style="color:#ff6600;">{backorder}</span>
-                    {soldout_html}
+                    {name}
                 </div>
                 """,
                 unsafe_allow_html=True
             )
+
+        # --- SKU | ASIN | カラー（2段目） ---
+        line = f"SKU:{sku} | ASIN:{asin}"
+        if color:
+            line += f" | <b>{color}</b>"
+
+        st.markdown(
+            f"""
+            <div style="font-size:13px;">
+                {line}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        # --- 在庫表示（3段目） ---
+        try:
+            available_int = int(available)
+        except:
+            available_int = 0
+
+        soldout_html = ""
+        if available_int == 0:
+            soldout_html = (
+                '<span style="'
+                'margin-left:8px;'
+                'padding:2px 6px;'
+                'font-size:11px;'
+                'font-weight:700;'
+                'background:#d40000;'
+                'color:white;'
+                'border-radius:4px;'
+                '">在庫切れ</span>'
+            )
+
+        st.markdown(
+            f"""
+            <div style="
+                font-size:15px;
+                font-weight:600;
+                margin-top:6px;
+            ">
+                販売可能: <span style="color:#007bff;">{available}</span>
+                ｜ 
+                入荷待ち: <span style="color:#ff6600;">{backorder}</span>
+                {soldout_html}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
     # ---- 発注推奨 ----
     with col3:
         st.markdown(
