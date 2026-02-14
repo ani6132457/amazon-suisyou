@@ -13,14 +13,14 @@ st.set_page_config(page_title="楽天画像 + 発注推奨", layout="wide")
 RAKUTEN_ITEM = "https://item.rakuten.co.jp/hype/{}/"
 CACHE_FILE = "image_cache.csv"
 
-# ----- 超コンパクトCSS -----
+# ----- 超コンパクトCSS（余白極小） -----
 st.markdown("""
 <style>
-.block-container {padding-top: 0.35rem; padding-bottom: 0.35rem;}
-div[data-testid="stVerticalBlock"] {gap: 0.12rem;}
+.block-container {padding-top:0.4rem; padding-bottom:0.4rem;}
+div[data-testid="stVerticalBlock"] {gap:0.15rem;}
 div[data-testid="stMarkdown"] p {margin:0;}
-hr {margin:0.22rem 0;}
-.small-sub {font-size:11px; color:#666;}
+hr {margin:0.25rem 0;}
+.small {font-size:11px; color:#666;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -40,8 +40,7 @@ def normalize(x):
 def extract_7digits(sku):
     if not sku:
         return None
-    sku = str(sku).strip()
-    head = sku.split("X")[0]
+    head = str(sku).split("X")[0]
     m = re.search(r"(\d{7})", head)
     return m.group(1) if m else None
 
@@ -100,6 +99,7 @@ if not uploaded:
 
 df = read_inventory_csv(uploaded)
 
+# 必須列
 df["推奨される在庫補充数量"] = pd.to_numeric(
     df["推奨される在庫補充数量"], errors="coerce"
 ).fillna(0).astype(int)
@@ -108,23 +108,34 @@ df["ASIN"] = df["ASIN"].map(normalize)
 
 if "Merchant SKU" in df.columns:
     df["Merchant SKU"] = df["Merchant SKU"].map(normalize)
+else:
+    df["Merchant SKU"] = ""
 
 if "商品名" in df.columns:
     df["商品名"] = df["商品名"].map(normalize)
 else:
     df["商品名"] = ""
 
+# ▼▼ ここ重要：列名が違う場合はここを修正 ▼▼
+COL_AVAILABLE = "販売可能な商品の合計"
+COL_BACKORDER = "入荷待ち"
+# ▲▲ ---------------------------------- ▲▲
+
+if COL_AVAILABLE not in df.columns:
+    df[COL_AVAILABLE] = ""
+if COL_BACKORDER not in df.columns:
+    df[COL_BACKORDER] = ""
+
 df = df.sort_values("推奨される在庫補充数量", ascending=False)
 
 # -------- 検索 --------
 search = st.text_input("🔎 SKU / ASIN / 商品名 検索（部分一致）")
-
 if search:
-    search = search.lower()
+    s = search.lower()
     df = df[
-        df["ASIN"].str.lower().str.contains(search, na=False)
-        | df["Merchant SKU"].str.lower().str.contains(search, na=False)
-        | df["商品名"].str.lower().str.contains(search, na=False)
+        df["ASIN"].str.lower().str.contains(s, na=False)
+        | df["Merchant SKU"].str.lower().str.contains(s, na=False)
+        | df["商品名"].str.lower().str.contains(s, na=False)
     ]
 
 # 楽天URL生成
@@ -138,7 +149,7 @@ cache_dict = dict(zip(cache_df["rakuten_url"], cache_df["image_url"]))
 
 # 表示設定
 max_rows = st.number_input("表示件数", 50, 2000, 300, 50)
-img_size = st.slider("画像サイズ", 25, 70, 36)
+img_size = st.slider("画像サイズ", 25, 70, 35)
 
 rows = df.head(int(max_rows))
 
@@ -147,18 +158,17 @@ for _, row in rows.iterrows():
 
     sku = row["Merchant SKU"]
     asin = row["ASIN"]
-    name = row["商品名"]
+    color = extract_color(row["商品名"])
     qty = row["推奨される在庫補充数量"]
+    available = normalize(row[COL_AVAILABLE])
+    backorder = normalize(row[COL_BACKORDER])
     url = row["rakuten_url"]
-
-    color = extract_color(name)
 
     col1, col2, col3 = st.columns([0.32, 4, 0.8])
 
     # ---- 画像（正方形）----
     with col1:
         img_url = cache_dict.get(url)
-
         if not img_url and url:
             new_img = fetch_image(url)
             if new_img:
@@ -170,33 +180,25 @@ for _, row in rows.iterrows():
         if img_url:
             st.markdown(
                 f"""
-                <div style="
-                    width:{img_size}px;
-                    height:{img_size}px;
-                    display:flex;
-                    align-items:center;
-                    justify-content:center;
-                    overflow:hidden;
-                    border-radius:4px;
-                ">
+                <div style="width:{img_size}px;height:{img_size}px;
+                            display:flex;align-items:center;justify-content:center;
+                            overflow:hidden;border-radius:4px;">
                     <img src="{img_url}"
-                         style="max-width:100%; max-height:100%; object-fit:contain;">
+                         style="max-width:100%;max-height:100%;object-fit:contain;">
                 </div>
                 """,
                 unsafe_allow_html=True
             )
-        else:
-            st.caption("—")
 
-    # ---- SKU / ASIN / カラー + 在庫情報 ----
+    # ---- SKU | ASIN | カラー + 在庫情報 ----
     with col2:
         line = f"SKU:{sku} | ASIN:{asin}"
         if color:
             line += f" | <b>{color}</b>"
-
         st.markdown(line, unsafe_allow_html=True)
+
         st.markdown(
-            "<span class='small-sub'>販売可能な商品の合計｜入荷待ち</span>",
+            f"<span class='small'>販売可能:{available} ｜ 入荷待ち:{backorder}</span>",
             unsafe_allow_html=True
         )
 
@@ -204,18 +206,15 @@ for _, row in rows.iterrows():
     with col3:
         st.markdown(
             f"""
-            <div style="
-                padding:4px;
-                text-align:center;
-                background:rgba(255,0,0,0.12);
-                border-radius:6px;">
-            <div style="font-size:9px;">発注</div>
-            <div style="font-size:17px;font-weight:900;color:#d40000;">
-            {qty}
-            </div>
+            <div style="padding:4px;text-align:center;
+                        background:rgba(255,0,0,0.12);border-radius:6px;">
+                <div style="font-size:9px;">発注</div>
+                <div style="font-size:17px;font-weight:900;color:#d40000;">
+                    {qty}
+                </div>
             </div>
             """,
-            unsafe_allow_html=True,
+            unsafe_allow_html=True
         )
 
     st.markdown("<hr>", unsafe_allow_html=True)
