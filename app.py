@@ -195,23 +195,23 @@ for _, row in rows.iterrows():
         line = f"SKU:{sku} | ASIN:{asin}"
         if color:
             line += f" | <b>{color}</b>"
-        st.markdown(line, unsafe_allow_html=True)
+            st.markdown(line, unsafe_allow_html=True)
 
-        st.markdown(
-            f"""
-            <div style="
-                font-size:15px;
-                font-weight:600;
-                margin-top:2px;
-            ">
-                販売可能: <span style="color:#007bff;">{available}</span>
-                ｜ 
-                入荷待ち: <span style="color:#ff6600;">{backorder}</span>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
+            st.markdown(
+                f"""
+                <div style="
+                    font-size:15px;
+                    font-weight:600;
+                    margin-top:6px;
+                    line-height:1.2;
+                ">
+                    販売可能: <span style="color:#007bff;">{available}</span>
+                    ｜ 
+                    入荷待ち: <span style="color:#ff6600;">{backorder}</span>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
     # ---- 発注推奨 ----
     with col3:
