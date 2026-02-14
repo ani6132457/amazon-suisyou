@@ -234,7 +234,6 @@ for _, row in rows.iterrows():
                 """,
                 unsafe_allow_html=True
             )
-
     # ---- 発注推奨 ----
     with col3:
         st.markdown(
