@@ -21,7 +21,11 @@ div[data-testid="stVerticalBlock"] {gap:0.15rem;}
 div[data-testid="stMarkdown"] p {margin:0;}
 hr {margin:0.25rem 0;}
 .small {font-size:11px; color:#666;}
-.product-name {font-size:14px; font-weight:600;}
+.product-name {
+    font-size:14px;
+    font-weight:600;
+    margin-bottom:4px;
+}
 </style>
 """, unsafe_allow_html=True)
 
