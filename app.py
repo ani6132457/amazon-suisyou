@@ -197,39 +197,38 @@ for _, row in rows.iterrows():
             line += f" | <b>{color}</b>"
             st.markdown(line, unsafe_allow_html=True)
 
-            # 数値判定（空文字対策）
+            # 数値判定
             try:
                 available_int = int(available)
             except:
                 available_int = 0
 
-            # 在庫切れラベル
-            soldout_label = ""
+            soldout_html = ""
             if available_int == 0:
-                soldout_label = """
-                    <span style="
-                        margin-left:8px;
-                        padding:2px 6px;
-                        font-size:12px;
-                        font-weight:700;
-                        background:#d40000;
-                        color:white;
-                        border-radius:4px;">
-                        在庫切れ
-                    </span>
-                """
+                soldout_html = (
+                    '<span style="'
+                    'margin-left:8px;'
+                    'padding:2px 6px;'
+                    'font-size:12px;'
+                    'font-weight:700;'
+                    'background:#d40000;'
+                    'color:white;'
+                    'border-radius:4px;'
+                    '">在庫切れ</span>'
+                )
+
             st.markdown(
                 f"""
                 <div style="
                     font-size:15px;
                     font-weight:600;
-                    margin-top:8px;
+                    margin-top:6px;
                     line-height:1.2;
                 ">
                     販売可能: <span style="color:#007bff;">{available}</span>
                     ｜ 
                     入荷待ち: <span style="color:#ff6600;">{backorder}</span>
-                    {soldout_label}
+                    {soldout_html}
                 </div>
                 """,
                 unsafe_allow_html=True
