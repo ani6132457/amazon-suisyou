@@ -16,10 +16,11 @@ CACHE_FILE = "image_cache.csv"
 # ----- 超コンパクトCSS -----
 st.markdown("""
 <style>
-.block-container {padding-top: 0.4rem; padding-bottom: 0.4rem;}
-div[data-testid="stVerticalBlock"] {gap: 0.15rem;}
+.block-container {padding-top: 0.35rem; padding-bottom: 0.35rem;}
+div[data-testid="stVerticalBlock"] {gap: 0.12rem;}
 div[data-testid="stMarkdown"] p {margin:0;}
-hr {margin:0.25rem 0;}
+hr {margin:0.22rem 0;}
+.small-sub {font-size:11px; color:#666;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -99,7 +100,6 @@ if not uploaded:
 
 df = read_inventory_csv(uploaded)
 
-# 必須列
 df["推奨される在庫補充数量"] = pd.to_numeric(
     df["推奨される在庫補充数量"], errors="coerce"
 ).fillna(0).astype(int)
@@ -121,34 +121,28 @@ search = st.text_input("🔎 SKU / ASIN / 商品名 検索（部分一致）")
 
 if search:
     search = search.lower()
-    mask = (
+    df = df[
         df["ASIN"].str.lower().str.contains(search, na=False)
         | df["Merchant SKU"].str.lower().str.contains(search, na=False)
         | df["商品名"].str.lower().str.contains(search, na=False)
-    )
-    df = df[mask]
+    ]
 
 # 楽天URL生成
-def build_url(row):
-    code = extract_7digits(row["Merchant SKU"])
-    if code:
-        return RAKUTEN_ITEM.format(code)
-    return ""
+df["rakuten_url"] = df["Merchant SKU"].apply(
+    lambda x: RAKUTEN_ITEM.format(extract_7digits(x)) if extract_7digits(x) else ""
+)
 
-df["rakuten_url"] = df.apply(build_url, axis=1)
-
-# キャッシュ読み込み
+# キャッシュ
 cache_df = load_cache()
 cache_dict = dict(zip(cache_df["rakuten_url"], cache_df["image_url"]))
 
-# 表示件数
+# 表示設定
 max_rows = st.number_input("表示件数", 50, 2000, 300, 50)
-img_size = st.slider("画像サイズ", 25, 70, 35)
+img_size = st.slider("画像サイズ", 25, 70, 36)
 
 rows = df.head(int(max_rows))
 
-driver = get_driver()
-
+# ---------------- 表示 ----------------
 for _, row in rows.iterrows():
 
     sku = row["Merchant SKU"]
@@ -161,9 +155,17 @@ for _, row in rows.iterrows():
 
     col1, col2, col3 = st.columns([0.32, 4, 0.8])
 
-    # ---- 画像 ----
+    # ---- 画像（正方形）----
     with col1:
         img_url = cache_dict.get(url)
+
+        if not img_url and url:
+            new_img = fetch_image(url)
+            if new_img:
+                cache_dict[url] = new_img
+                cache_df.loc[len(cache_df)] = [url, new_img]
+                save_cache(cache_df)
+                img_url = new_img
 
         if img_url:
             st.markdown(
@@ -178,33 +180,25 @@ for _, row in rows.iterrows():
                     border-radius:4px;
                 ">
                     <img src="{img_url}"
-                        style="
-                            max-width:100%;
-                            max-height:100%;
-                            object-fit:contain;
-                        ">
+                         style="max-width:100%; max-height:100%; object-fit:contain;">
                 </div>
                 """,
                 unsafe_allow_html=True
             )
-
         else:
-            if url:
-                new_img = fetch_image(url)
-                if new_img:
-                    cache_dict[url] = new_img
-                    cache_df.loc[len(cache_df)] = [url, new_img]
-                    save_cache(cache_df)
-                    st.image(new_img, width=img_size)
-                else:
-                    st.caption("—")
+            st.caption("—")
 
-    # ---- SKU / ASIN / カラー ----
+    # ---- SKU / ASIN / カラー + 在庫情報 ----
     with col2:
         line = f"SKU:{sku} | ASIN:{asin}"
         if color:
             line += f" | <b>{color}</b>"
+
         st.markdown(line, unsafe_allow_html=True)
+        st.markdown(
+            "<span class='small-sub'>販売可能な商品の合計｜入荷待ち</span>",
+            unsafe_allow_html=True
+        )
 
     # ---- 発注推奨 ----
     with col3:
