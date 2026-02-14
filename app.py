@@ -162,11 +162,31 @@ for _, row in rows.iterrows():
     col1, col2, col3 = st.columns([0.32, 4, 0.8])
 
     # ---- 画像 ----
-    with col1:
-        img_url = cache_dict.get(url)
+with col1:
+    img_url = cache_dict.get(url)
 
-        if img_url:
-            st.image(img_url, width=img_size)
+    if img_url:
+        st.markdown(
+            f"""
+            <div style="
+                width:{img_size}px;
+                height:{img_size}px;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                overflow:hidden;
+                border-radius:4px;
+            ">
+                <img src="{img_url}"
+                     style="
+                         max-width:100%;
+                         max-height:100%;
+                         object-fit:contain;
+                     ">
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
         else:
             if url:
                 new_img = fetch_image(url)
