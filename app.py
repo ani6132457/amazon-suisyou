@@ -138,6 +138,11 @@ if search:
         | df["商品名"].str.lower().str.contains(s, na=False)
     ]
 
+only_soldout = st.checkbox("在庫切れのみ表示")
+
+if only_soldout:
+    df = df[pd.to_numeric(df[COL_AVAILABLE], errors="coerce").fillna(0) == 0]
+
 # 楽天URL生成
 df["rakuten_url"] = df["Merchant SKU"].apply(
     lambda x: RAKUTEN_ITEM.format(extract_7digits(x)) if extract_7digits(x) else ""
