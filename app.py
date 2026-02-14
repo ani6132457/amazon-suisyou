@@ -162,7 +162,7 @@ for _, row in rows.iterrows():
     col1, col2, col3 = st.columns([0.32, 4, 0.8])
 
     # ---- 画像 ----
-with col1:
+    with col1:
     img_url = cache_dict.get(url)
 
     if img_url:
@@ -187,6 +187,7 @@ with col1:
             """,
             unsafe_allow_html=True
         )
+
         else:
             if url:
                 new_img = fetch_image(url)
