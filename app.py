@@ -227,7 +227,7 @@ for _, row in rows.iterrows():
                 <div style="
                     font-size:15px;
                     font-weight:600;
-                    margin-top:6px;
+                    margin-top:12px;
                     line-height:1.2;
                 ">
                     販売可能: <span style="color:#007bff;">{available}</span>
