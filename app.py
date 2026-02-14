@@ -163,7 +163,7 @@ for _, row in rows.iterrows():
 
     # ---- 画像 ----
     with col1:
-    img_url = cache_dict.get(url)
+        img_url = cache_dict.get(url)
 
         if img_url:
             st.markdown(
