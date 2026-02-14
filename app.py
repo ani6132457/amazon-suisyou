@@ -24,7 +24,7 @@ hr {margin:0.25rem 0;}
 .product-name {
     font-size:14px;
     font-weight:600;
-    margin-bottom:4px;
+    margin-bottom:8px;
 }
 </style>
 """, unsafe_allow_html=True)
