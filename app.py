@@ -198,9 +198,20 @@ for _, row in rows.iterrows():
         st.markdown(line, unsafe_allow_html=True)
 
         st.markdown(
-            f"<span class='small'>販売可能:{available} ｜ 入荷待ち:{backorder}</span>",
+            f"""
+            <div style="
+                font-size:15px;
+                font-weight:600;
+                margin-top:2px;
+            ">
+                販売可能: <span style="color:#007bff;">{available}</span>
+                ｜ 
+                入荷待ち: <span style="color:#ff6600;">{backorder}</span>
+            </div>
+            """,
             unsafe_allow_html=True
         )
+
 
     # ---- 発注推奨 ----
     with col3:
