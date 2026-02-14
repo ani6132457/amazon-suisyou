@@ -226,8 +226,9 @@ try:
         # 在庫数
         available_raw = row[COL_AVAILABLE]
         backorder_raw = row[COL_BACKORDER]
-        available = int(pd.to_numeric(available_raw, errors="coerce").fillna(0))
-        backorder = int(pd.to_numeric(backorder_raw, errors="coerce").fillna(0))
+        available = int(pd.to_numeric(available_raw, errors="coerce") or 0)
+        backorder = int(pd.to_numeric(backorder_raw, errors="coerce") or 0)
+
 
         # 画像URL（キャッシュ優先）
         img_url = cache_dict.get(url, "") if url else ""
