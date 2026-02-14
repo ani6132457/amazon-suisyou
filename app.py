@@ -207,33 +207,42 @@ for _, row in rows.iterrows():
             line += f" | <b>{color}</b>"
         st.markdown(line, unsafe_allow_html=True)
 
-        # 在庫表示
+        # 数値判定
+        try:
+            available_int = int(available)
+        except:
+            available_int = 0
+
         soldout_html = ""
-        if available == 0:
-            soldout_html = """
-                <span style="
-                    margin-left:8px;
-                    padding:2px 6px;
-                    font-size:12px;
-                    font-weight:700;
-                    background:#d40000;
-                    color:white;
-                    border-radius:4px;">
-                    在庫切れ
-                </span>
-            """
+        if available_int == 0:
+            soldout_html = (
+                '<span style="'
+                'margin-left:8px;'
+                'padding:2px 6px;'
+                'font-size:12px;'
+                'font-weight:700;'
+                'background:#d40000;'
+                'color:white;'
+                'border-radius:4px;'
+                '">在庫切れ</span>'
+            )
 
         st.markdown(
             f"""
-            <div style="font-size:15px;font-weight:600;margin-top:6px;">
+            <div style="
+                font-size:15px;
+                font-weight:600;
+                margin-top:6px;
+                line-height:1.2;
+            ">
                 販売可能: <span style="color:#007bff;">{available}</span>
-                ｜ 入荷待ち: <span style="color:#ff6600;">{backorder}</span>
+                ｜ 
+                入荷待ち: <span style="color:#ff6600;">{backorder}</span>
                 {soldout_html}
             </div>
             """,
             unsafe_allow_html=True
         )
-
     # ---- 発注 ----
     with col3:
         st.markdown(
